@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WordRush</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ── Toast Container ──────────────────────────────────────────────── -->
+<div id="toasts"></div>
+
+<!-- ── Screen: Home ─────────────────────────────────────────────────── -->
+<div id="screen-home" class="screen active">
+  <div class="home-inner">
+    <div class="logo">
+      <span class="logo-tile green">W</span><span class="logo-tile yellow">O</span><span class="logo-tile green">R</span><span class="logo-tile gray">D</span><span class="logo-tile yellow">R</span><span class="logo-tile green">U</span><span class="logo-tile gray">S</span><span class="logo-tile green">H</span>
+    </div>
+    <p class="tagline">Guess together. Win together.</p>
+    <div class="home-buttons">
+      <button class="btn btn-primary" onclick="showScreen('screen-create')">Create Room</button>
+      <button class="btn btn-secondary" onclick="showScreen('screen-join')">Join Room</button>
+    </div>
+    <p class="home-sub">No account needed. Just pick a name and play.</p>
+  </div>
+</div>
+
+<!-- ── Screen: Create Room ──────────────────────────────────────────── -->
+<div id="screen-create" class="screen">
+  <div class="form-container">
+    <button class="btn-back" onclick="showScreen('screen-home')">← Back</button>
+    <h2>Create a Room</h2>
+    <label>Your Name</label>
+    <input id="create-name" type="text" maxlength="20" placeholder="Enter your name" />
+
+    <label>Choose Avatar</label>
+    <div class="emoji-picker" id="create-emoji-picker"></div>
+    <input type="hidden" id="create-emoji" value="👾" />
+
+    <label>Game Mode</label>
+    <select id="create-mode" onchange="onModeChange()">
+      <option value="solo_race">Solo Race – everyone guesses simultaneously</option>
+      <option value="time_attack">Time Attack – 60-second countdown</option>
+      <option value="relay">Relay Mode – 2 guesses per player, then passes</option>
+      <option value="hint_mode">Hint Mode – spend points to reveal a letter</option>
+    </select>
+
+    <label>Number of Rounds (1–10)</label>
+    <input id="create-rounds" type="number" min="1" max="10" value="5" />
+
+    <div id="time-limit-row">
+      <label>Time Limit</label>
+      <select id="create-timelimit">
+        <option value="30">30 seconds</option>
+        <option value="60" selected>60 seconds</option>
+        <option value="90">90 seconds</option>
+        <option value="120">120 seconds</option>
+      </select>
+    </div>
+
+    <label>Custom Word List <span class="label-sub">(optional – comma separated, 5-letter words)</span></label>
+    <textarea id="create-customwords" placeholder="Add family names, cities, inside jokes! e.g. BUNNY, HONEY, PIZZA"></textarea>
+
+    <button class="btn btn-primary" onclick="createRoom()">Create Room</button>
+  </div>
+</div>
+
+<!-- ── Screen: Join Room ────────────────────────────────────────────── -->
+<div id="screen-join" class="screen">
+  <div class="form-container">
+    <button class="btn-back" onclick="showScreen('screen-home')">← Back</button>
+    <h2>Join a Room</h2>
+    <label>Room Code</label>
+    <input id="join-code" type="text" maxlength="6" placeholder="Enter 6-character code" oninput="this.value=this.value.toUpperCase()" />
+
+    <label>Your Name</label>
+    <input id="join-name" type="text" maxlength="20" placeholder="Enter your name" />
+
+    <label>Choose Avatar</label>
+    <div class="emoji-picker" id="join-emoji-picker"></div>
+    <input type="hidden" id="join-emoji" value="👾" />
+
+    <div id="join-error" class="error-msg"></div>
+    <button class="btn btn-primary" onclick="joinRoom()">Join Room</button>
+  </div>
+</div>
+
+<!-- ── Screen: Lobby ─────────────────────────────────────────────────── -->
+<div id="screen-lobby" class="screen">
+  <div class="lobby-container">
+    <div class="room-code-display">
+      <span id="lobby-room-code" class="room-code-text"></span>
+      <button class="btn-copy" onclick="copyRoomCode()" title="Copy code">📋</button>
+    </div>
+    <p class="lobby-subtitle">Share this code with your family!</p>
+
+    <div id="lobby-players" class="player-list"></div>
+
+    <div class="lobby-meta" id="lobby-meta"></div>
+
+    <div id="host-controls" class="host-controls" style="display:none">
+      <button class="btn btn-primary" id="btn-force-start" onclick="forceStart()">▶ Start Game</button>
+    </div>
+    <div id="guest-controls" class="guest-controls" style="display:none">
+      <button class="btn btn-secondary" id="btn-ready" onclick="toggleReady()">✋ I'm Ready!</button>
+    </div>
+
+    <p class="lobby-waiting pulse" id="lobby-waiting">Waiting for players...</p>
+  </div>
+</div>
+
+<!-- ── Screen: Game ──────────────────────────────────────────────────── -->
+<div id="screen-game" class="screen">
+  <div class="game-topbar">
+    <div class="topbar-left">
+      <span id="game-room-code" class="topbar-code"></span>
+      <span id="game-round-info" class="topbar-round"></span>
+    </div>
+    <div class="topbar-center" id="topbar-mode-badge"></div>
+    <div class="topbar-right">
+      <span id="game-score" class="topbar-score"></span>
+      <button class="btn-mute" id="btn-mute" onclick="toggleMute()" title="Toggle sound">🔊</button>
+    </div>
+  </div>
+
+  <div id="time-attack-bar-wrap" style="display:none">
+    <div id="time-attack-bar"><div id="time-attack-fill"></div></div>
+    <span id="time-attack-secs"></span>
+  </div>
+
+  <div class="game-layout">
+    <!-- Left: Own board -->
+    <div class="game-left">
+      <div id="hint-row" class="hint-row" style="display:none"></div>
+      <div id="guess-grid" class="guess-grid"></div>
+      <div id="hint-btn-wrap" style="display:none">
+        <button class="btn btn-hint" onclick="useHint()">💡 Use Hint (-10 pts)</button>
+      </div>
+      <div id="keyboard" class="keyboard"></div>
+    </div>
+
+    <!-- Right: Opponents -->
+    <div class="game-right">
+      <h3 class="live-title">Live Scores</h3>
+      <div id="opponents-panel" class="opponents-panel"></div>
+      <div id="relay-info" class="relay-info" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Screen: Round Over ────────────────────────────────────────────── -->
+<div id="screen-roundover" class="screen">
+  <div class="roundover-container">
+    <h2 id="roundover-title">Round Complete! 🎉</h2>
+    <div class="word-reveal" id="roundover-word"></div>
+    <table class="leaderboard" id="roundover-leaderboard"></table>
+    <p id="roundover-countdown" class="countdown-text"></p>
+    <div id="host-next-btn" style="display:none">
+      <button class="btn btn-primary" onclick="nextRound()">▶ Start Next Round Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Screen: Game Over ─────────────────────────────────────────────── -->
+<div id="screen-gameover" class="screen">
+  <div class="gameover-container">
+    <h1>🏆 Game Over!</h1>
+    <div id="winner-announce" class="winner-announce"></div>
+    <table class="leaderboard" id="gameover-leaderboard"></table>
+    <div class="gameover-buttons">
+      <button class="btn btn-primary" onclick="restartGame()">🔄 Play Again</button>
+      <button class="btn btn-secondary" onclick="newGame()">🏠 New Game</button>
+    </div>
+  </div>
+</div>
+
+<script src="words.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
